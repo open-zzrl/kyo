@@ -2,6 +2,7 @@ import json
 import os
 import time
 from typing import Any, Dict, List, Optional, Union
+
 from huggingface_hub import snapshot_download
 from safetensors.torch import load_file
 import torch
@@ -36,9 +37,10 @@ class Kyo:
         device: Optional[str] = None,
         confidence_threshold: float = 0.85,
         max_seq_len: int = 4096,
+        base_encoder_id: str = "jhu-clsp/mmBERT-small",
         **kwargs,
     ) -> "Kyo":
-        """Загрузка движка Kyo напрямую из репозитория open-zzrl/kyo."""
+        """Загрузка движка с автоматическим разрешением конфига и весов."""
         target_device = device or ("cuda" if torch.cuda.is_available() else "cpu")
         target_dtype = torch.bfloat16 if "cuda" in target_device else torch.float32
 
@@ -47,8 +49,32 @@ class Kyo:
         else:
             model_dir = snapshot_download(repo_id=model_name_or_path)
 
-        tokenizer = AutoTokenizer.from_pretrained(model_dir)
-        config = AutoConfig.from_pretrained(model_dir)
+        # 1. Загрузка токенизатора с безопасным фоллбэком
+        try:
+            tokenizer = AutoTokenizer.from_pretrained(model_dir)
+        except Exception:
+            tokenizer = AutoTokenizer.from_pretrained(base_encoder_id)
+
+        # 2. Загрузка конфига с обработкой отсутствующего model_type
+        config = None
+        try:
+            config = AutoConfig.from_pretrained(model_dir)
+        except Exception:
+            cfg_path = os.path.join(model_dir, "config.json")
+            if os.path.exists(cfg_path):
+                try:
+                    with open(cfg_path, "r", encoding="utf-8") as f:
+                        cfg_dict = json.load(f)
+                    if "model_type" not in cfg_dict:
+                        cfg_dict["model_type"] = "modernbert"
+                    config = AutoConfig.for_model(**cfg_dict)
+                except Exception:
+                    pass
+
+        if config is None:
+            config = AutoConfig.from_pretrained(base_encoder_id)
+
+        # 3. Инициализация модели и загрузка весов
         model = KyoCrossDecisionModel(config=config, torch_dtype=target_dtype)
 
         sf_path = os.path.join(model_dir, "model.safetensors")
@@ -60,7 +86,7 @@ class Kyo:
             state_dict = torch.load(bin_path, map_location="cpu", weights_only=True)
         else:
             raise FileNotFoundError(
-                f"Файлы весов (model.safetensors) не найдены в репозитории {model_name_or_path}"
+                f"Файлы весов (model.safetensors / pytorch_model.bin) не найдены в {model_dir}"
             )
 
         model.load_state_dict({k: v.to(target_dtype) for k, v in state_dict.items()})
@@ -83,9 +109,6 @@ class Kyo:
         threshold: Optional[float] = None,
         max_seq_len: Optional[int] = None,
     ) -> DecisionResult:
-        """
-        Оценка вариантов решения по заданному контексту.
-        """
         t0 = time.perf_counter()
 
         if isinstance(context, dict):
