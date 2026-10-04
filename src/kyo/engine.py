@@ -23,9 +23,13 @@ class Kyo:
         device: Optional[str] = None,
         confidence_threshold: float = 0.85,
         max_seq_len: int = 4096,
+        dtype: Optional[torch.dtype] = None,
     ):
         self.device = device or ("cuda" if torch.cuda.is_available() else "cpu")
-        self.model = model.to(self.device).eval()
+        self.dtype = dtype or (
+            torch.bfloat16 if "cuda" in self.device else torch.float32
+        )
+        self.model = model.to(device=self.device, dtype=self.dtype).eval()
         self.tokenizer = tokenizer
         self.confidence_threshold = confidence_threshold
         self.max_seq_len = max_seq_len
@@ -40,7 +44,6 @@ class Kyo:
         base_encoder_id: str = "jhu-clsp/mmBERT-small",
         **kwargs,
     ) -> "Kyo":
-        """Загрузка движка с автоматическим разрешением конфига и весов."""
         target_device = device or ("cuda" if torch.cuda.is_available() else "cpu")
         target_dtype = torch.bfloat16 if "cuda" in target_device else torch.float32
 
@@ -49,13 +52,11 @@ class Kyo:
         else:
             model_dir = snapshot_download(repo_id=model_name_or_path)
 
-        # 1. Загрузка токенизатора с безопасным фоллбэком
         try:
             tokenizer = AutoTokenizer.from_pretrained(model_dir)
         except Exception:
             tokenizer = AutoTokenizer.from_pretrained(base_encoder_id)
 
-        # 2. Загрузка конфига с обработкой отсутствующего model_type
         config = None
         try:
             config = AutoConfig.from_pretrained(model_dir)
@@ -74,7 +75,6 @@ class Kyo:
         if config is None:
             config = AutoConfig.from_pretrained(base_encoder_id)
 
-        # 3. Инициализация модели и загрузка весов
         model = KyoCrossDecisionModel(config=config, torch_dtype=target_dtype)
 
         sf_path = os.path.join(model_dir, "model.safetensors")
@@ -86,10 +86,11 @@ class Kyo:
             state_dict = torch.load(bin_path, map_location="cpu", weights_only=True)
         else:
             raise FileNotFoundError(
-                f"Файлы весов (model.safetensors / pytorch_model.bin) не найдены в {model_dir}"
+                f"Файлы весов не найдены в репозитории {model_name_or_path}"
             )
 
         model.load_state_dict({k: v.to(target_dtype) for k, v in state_dict.items()})
+        model.to(device=target_device, dtype=target_dtype)
 
         return cls(
             model=model,
@@ -97,6 +98,7 @@ class Kyo:
             device=target_device,
             confidence_threshold=confidence_threshold,
             max_seq_len=max_seq_len,
+            dtype=target_dtype,
             **kwargs,
         )
 

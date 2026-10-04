@@ -9,18 +9,23 @@ class KyoCrossDecisionModel(nn.Module):
 
     def __init__(self, config: AutoConfig, torch_dtype: Optional[torch.dtype] = None):
         super().__init__()
-        # Инициализация каркаса без загрузки сторонних весов
+        dtype = torch_dtype or (
+            torch.bfloat16 if torch.cuda.is_available() else torch.float32
+        )
+
         self.encoder = AutoModel.from_config(config, attn_implementation="sdpa")
         hidden_size = config.hidden_size  # 384
 
-        # Dual Pooling: CLS (384) + Mean (384) = 768
-        self.ln = nn.LayerNorm(hidden_size * 2, dtype=torch_dtype or torch.bfloat16)
+        self.ln = nn.LayerNorm(hidden_size * 2)
         self.classifier = nn.Sequential(
             nn.Linear(hidden_size * 2, hidden_size),
             nn.GELU(),
             nn.Dropout(0.1),
             nn.Linear(hidden_size, 1),
-        ).to(dtype=torch_dtype or torch.bfloat16)
+        )
+
+        # Кастуем все модули к единому типу
+        self.to(dtype)
 
     def forward(
         self,
@@ -35,23 +40,28 @@ class KyoCrossDecisionModel(nn.Module):
         cls_rep = last_hidden[:, 0, :]
 
         # 2. Masked Mean Pooling
-        mask_expanded = attention_mask.unsqueeze(-1).expand_as(last_hidden).float()
+        mask_expanded = (
+            attention_mask.unsqueeze(-1).expand_as(last_hidden).to(last_hidden.dtype)
+        )
         sum_embeddings = torch.sum(last_hidden * mask_expanded, dim=1)
         sum_mask = mask_expanded.sum(dim=1).clamp(min=1e-9)
-        mean_rep = (sum_embeddings / sum_mask).to(dtype=cls_rep.dtype)
+        mean_rep = sum_embeddings / sum_mask
 
-        # 3. LayerNorm + классификатор
-        features = self.ln(torch.cat([cls_rep, mean_rep], dim=-1))
+        # 3. Гарантированный каст к типу весов LayerNorm
+        raw_features = torch.cat([cls_rep, mean_rep], dim=-1).to(
+            self.ln.weight.dtype
+        )
+        features = self.ln(raw_features)
         flat_scores = self.classifier(features).squeeze(-1)
 
-        # 4. Батчинг логитов по опциям
+        # 4. Батчинг логитов
         batch_size = len(num_options)
         max_k = max(num_options)
         padded_logits = torch.full(
             (batch_size, max_k),
             -1e4,
             device=input_ids.device,
-            dtype=cls_rep.dtype,
+            dtype=flat_scores.dtype,
         )
 
         start_idx = 0
