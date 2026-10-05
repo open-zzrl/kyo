@@ -85,37 +85,49 @@ pip install -e .
 ## Quickstart
 
 ```python
+import torch
 from kyo import Kyo
 
-# Loads weights directly from open-zzrl/kyo on Hugging Face Hub
+# 1. Load the engine directly from Hugging Face Hub
 engine = Kyo.from_pretrained("open-zzrl/kyo", confidence_threshold=0.85)
 
-# Provide agent telemetry or system state (dict or JSON string)
 telemetry = {
-    "agent_id": "auth-monitor-02",
-    "failed_attempts_last_60s": 48,
-    "ip_reputation_score": 0.88,
+    "agent_id": "payment-worker-4",
+    "endpoint": "/api/v1/transfer/batch",
+    "requested_amount_usd": 145000,
+    "spending_limit_usd": 50000,
+    "user_approval_present": False,
     "geo_anomaly": True
 }
 
-# Run sub-10ms deterministic decision
+instruction = "Verify transaction safety against corporate treasury compliance rules."
+
+options = {
+    "Allow": "Transaction within limits and conforms to standard policy.",
+    "Require2FA": "Minor anomaly; hold for secondary automated factor.",
+    "BlockAndEscalate": "Hard limit breach or suspicious telemetry; freeze and alert human."
+}
+
+# 2. Warm-up (initializes CUDA context and JIT-compiles SDPA kernels)
+_ = engine.decide(context=telemetry, instruction=instruction, options=options)
+
+# 3. Benchmark run (Hot inference)
 result = engine.decide(
     context=telemetry,
-    instruction="Assess the security threat level for this authentication event.",
-    options={
-        "Low": "Isolated anomaly or transient credential glitch.",
-        "Moderate": "Repeated anomalies from single source requiring throttling.",
-        "Critical": "Active distributed brute-force; execute immediate block."
-    }
+    instruction=instruction,
+    options=options
 )
 
-print(result)
-# <DecisionResult: , [LOCAL_EXEC] choice="Critical" confidence="96.4%," latency="5.84ms">
-
-if result.fallback_to_llm:
-    print("Uncertain decision: escalating to Frontier LLM.")
-else:
-    print(f"Action triggered: {result.decision}")
+print("-" * 55)
+print(f"Device             : {next(engine.model.parameters()).device}")
+print(f"Decision           : {result.decision}")
+print(f"Confidence         : {result.confidence * 100:.2f}%")
+print(f"HOT Latency        : {result.latency_ms:.2f} ms")
+print(f"Requires Fallback  : {result.fallback_to_llm}")
+print("Probability Scores :")
+for opt, score in result.scores.items():
+    print(f"  - {opt:<18}: {score * 100:>6.2f}%")
+print("-" * 55)
 ```
 
 ### Accessing Scored Distributions
