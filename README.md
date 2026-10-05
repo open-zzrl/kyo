@@ -2,7 +2,7 @@
 
 # ⚡ Kyo
 
-**Ultra-fast 135M System-One Decision Engine for AI Agents & Guardrails**
+**Ultra-fast 140M System-One Decision Engine for AI Agents & Guardrails**
 
 [![PyPI version](https://img.shields.io/pypi/v/kyo.svg?color=blue)](https://pypi.org/project/kyo/)
 [![Hugging Face](https://img.shields.io/badge/%F0%9F%A4%97%20Hugging%20Face-open--zzrl%2Fkyo-yellow)](https://huggingface.co/open-zzrl/kyo)
@@ -17,9 +17,9 @@
 
 ## What is Kyo?
 
-**Kyo** is an ultra-compact (135M parameter) **System-One** reasoning engine engineered to sit in front of autonomous LLM pipelines. Instead of wasting expensive frontier tokens (Claude 3.5 Sonnet, GPT-4o) on boolean policy checks, risk evaluations, and deterministic tool routing, Kyo evaluates raw state dumps, telemetry logs, and JSON payloads in **sub-10ms** with **100% order-invariance**.
+**Kyo** is an ultra-compact (140M parameter) **System-One** reasoning engine engineered to sit in front of autonomous LLM pipelines. Instead of wasting expensive frontier tokens (Claude 3.5 Sonnet, GPT-4o) on boolean policy checks, risk evaluations, and deterministic tool routing, Kyo evaluates raw state dumps, telemetry logs, and JSON payloads in **sub-10ms** with **100% order-invariance**.
 
-* **Backbone:** Bidirectional Transformer (`mmBERT-small`, 135M parameters, hidden size 384).
+* **Backbone:** Bidirectional Transformer (`mmBERT-small`, 140M parameters, hidden size 384).
 * **Architecture:** Pairwise Cross-Encoder with **Dual Pooling** (`[CLS]` + Masked Mean $\to$ 768d).
 * **100% Order-Invariance:** Candidate options are evaluated in isolated pairwise cross-attention passes, completely eliminating letter/position biases.
 * **Calibrated Confidence:** Built-in thresholding automatically flags uncertain decisions for escalation to frontier models.
@@ -32,7 +32,7 @@ Evaluated on the independent test splits of standard decision benchmarks:
 
 ### 1. Agent Policies & Guardrails (`LocalLLaMA/typed-decisions`, 2,000 hold-out scenarios)
 
-| Metric / Benchmark | Kyo (135M) | Laya (421M) | TypeSafe Jev |
+| Metric / Benchmark | Kyo (140M) | Laya (421M) | TypeSafe Jev |
 | :--- | :--- | :--- | :--- |
 | Typed-decisions (Overall) | 72.90% | **76.60%** | 72.70% |
 | ↳ noul (Boolean Gating) | 84.00% | **85.70%** | 77.50% |
@@ -42,7 +42,7 @@ Evaluated on the independent test splits of standard decision benchmarks:
 
 ### 2. Multi-Column Tabular Arithmetic (`avbiswas/bev-decision`, 1,760 hold-out samples)
 
-| Benchmark | Kyo (135M) | Laya Base (149M) | Jev-0.5B (490M) |
+| Benchmark | Kyo (140M) | Laya Base (149M) | Jev-0.5B (490M) |
 |---|:---:|:---:|:---:|
 | **bev-decision (holdout)** | **57.67%** | 71.80% | 75.40% |
 
