@@ -32,15 +32,13 @@ Evaluated on the independent test splits of standard decision benchmarks:
 
 ### 1. Agent Policies & Guardrails (`LocalLLaMA/typed-decisions`, 2,000 hold-out scenarios)
 
-| Metric / Task | Kyo (135M) | Laya Base (421M) | Jev-0.5B (490M) |
-|---|:---:|:---:|:---:|
-| **Overall Accuracy** | **72.90%** | 74.00% | 77.95% |
-| **`noul` (Boolean Policy / Gating)** | **84.00%** | 82.50% | 85.83% |
-| **`choice` (Action Routing)** | **70.00%** | 71.83% | 76.50% |
-| **`score` (Risk Tiers 0–3)** | **66.75%** | 69.25% | 73.12% |
-| **Order-Invariance Consistency** | **100.00%** | 97.65% | 89.40% |
-| **Average Latency (GPU)** | **~6.0 ms** | ~4.1 ms | ~9.8 ms |
-| **VRAM Footprint (Inference)** | **< 1.5 GB** | ~1.8 GB | ~3.4 GB |
+| Metric / Benchmark | Kyo (135M) | Laya (421M) | TypeSafe Jev |
+| :--- | :--- | :--- | :--- |
+| Typed-decisions (Overall) | 72.90% | **76.60%** | 72.70% |
+| ↳ noul (Boolean Gating) | 84.00% | **85.70%** | 77.50% |
+| ↳ choice (Action / Tool Routing) | 70.00% | **73.30%** | 72.00% |
+| ↳ score (Risk Tiers 0-3)) | 66.75% | **72.30%** | 69.60% |
+| Order-Invariance | **100.00%** | 27.05% | 13.0% |
 
 ### 2. Multi-Column Tabular Arithmetic (`avbiswas/bev-decision`, 1,760 hold-out samples)
 
