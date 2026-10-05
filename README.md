@@ -32,7 +32,7 @@ Evaluated on the independent test splits of standard decision benchmarks:
 
 ### 1. Agent Policies & Guardrails (`LocalLLaMA/typed-decisions`, 2,000 hold-out scenarios)
 
-| Metric / Task | Kyo (135M) | Laya Base (149M) | Jev-0.5B (490M) |
+| Metric / Task | Kyo (135M) | Laya Base (421M) | Jev-0.5B (490M) |
 |---|:---:|:---:|:---:|
 | **Overall Accuracy** | **72.90%** | 74.00% | 77.95% |
 | **`noul` (Boolean Policy / Gating)** | **84.00%** | 82.50% | 85.83% |
